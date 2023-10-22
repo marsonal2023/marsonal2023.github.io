@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bookmarks Page</title>
+    <style>
+      .correct {
+        color: black;
+        background-color: #9fffcb;
+   }
+      .incorrect {
+        color: black;
+        background-color: #ffdbda;
+
+      }
+      .delete-icon {
+        cursor: pointer;
+        margin-left: 5px;
+      }
+      .note {
+        margin-top: 10px;
+        background-color: #f1f1f1;
+        padding: 5px;
+      }
+      .note-input,
+      .image-input {
+        display: block;
+        margin-bottom: 5px;
+      }
+      .bookmark-container {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .category-header {
+        font-weight: bold;
+        cursor: pointer;
+        background-color: white;
+        box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #d8e2dc;
+        width: 100%;
+      }
+      .category-content {
+        display: none;
+      }
+      .category-content.show {
+        display: block;
+      }
+      .saved-note {
+        color: #25a18e;
+        margin-top: 10px;
+        background-color: #f9f9f9;
+        padding: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bookmarks"></div>
+    <script>
+      const dbName = "bookmarksB";
+      const dbVersion = 1;
+    
+      const request = indexedDB.open(dbName, dbVersion);
+    
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+    
+        const objectStore = db.createObjectStore("bookmarks", {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+      };
+    
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+    
+        const transaction = db.transaction(["bookmarks"], "readonly");
+        const objectStore = transaction.objectStore("bookmarks");
+    
+        const request = objectStore.getAll();
+    
+        request.onsuccess = (event) => {
+          const bookmarks = event.target.result;
+    
+          const bookmarksContainer = document.getElementById("bookmarks");
+    
+          const generalId = "women";
+    
+          const filteredBookmarks = bookmarks.filter(
+            (bookmark) => bookmark.generalId === generalId
+          );
+    
+          const bookmarksBySubtopics = {};
+    
+          filteredBookmarks.forEach((bookmark) => {
+            const subtopic = bookmark.subtopic;
+    
+            if (!bookmarksBySubtopics[subtopic]) {
+              bookmarksBySubtopics[subtopic] = [];
+            }
+    
+            bookmarksBySubtopics[subtopic].push(bookmark);
+          });
+    
+          for (const subtopic in bookmarksBySubtopics) {
+            const categoryHeader = document.createElement("button");
+            categoryHeader.classList.add("category-header");
+            categoryHeader.textContent = subtopic;
+    
+            const categoryContent = document.createElement("div");
+            categoryContent.classList.add("category-content");
+    
+            bookmarksContainer.appendChild(categoryHeader);
+            bookmarksContainer.appendChild(categoryContent);
+    
+            bookmarksBySubtopics[subtopic].forEach((bookmark) => {
+              const bookmarkContainer = document.createElement("div");
+              bookmarkContainer.classList.add("bookmark-container");
+    
+              const questionContainer = document.createElement("div");
+              questionContainer.classList.add("question");
+    
+              const questionText = document.createElement("p");
+              questionText.innerHTML = bookmark.questionText;
+    
+              questionContainer.appendChild(questionText);
+    
+              // If the bookmark has a note property, display it in a paragraph element
+              if (bookmark.note) {
+                const quizNote = document.createElement("p");
+                quizNote.textContent = bookmark.note;
+    
+                questionContainer.appendChild(quizNote);
+              }
+    
+              const deleteIcon = document.createElement("span");
+              deleteIcon.textContent = "❌";
+              deleteIcon.classList.add("delete-icon");
+    
+              questionText.appendChild(deleteIcon);
+    
+              bookmark.answerOptions.forEach((option, index) => {
+                const optionBtn = document.createElement("button");
+                optionBtn.classList.add("option");
+                optionBtn.textContent = option;
+    
+                if (index === parseInt(bookmark.correctAnswer)) {
+                  optionBtn.classList.add("correct");
+                }
+    
+                questionContainer.appendChild(optionBtn);
+              });
+    
+              // Create a div to store all the notes and images
+              // This div will be updated whenever a new note or image is added
+              const savedNote = document.createElement("div");
+              savedNote.classList.add("saved-note");
+    
+              questionContainer.appendChild(savedNote);
+    
+              const note = document.createElement("div");
+              note.classList.add("note");
+    
+              questionContainer.appendChild(note);
+    
+              const addNoteBtn = document.createElement("button");
+              addNoteBtn.textContent = "Add Note";
+    
+              note.appendChild(addNoteBtn);
+    
+              const addImageBtn = document.createElement("button");
+              addImageBtn.textContent = "Add Image";
+    
+              note.appendChild(addImageBtn);
+    
+              bookmarkContainer.appendChild(questionContainer);
+    
+              deleteIcon.addEventListener("click", () => {
+                const deleteTransaction = db.transaction(
+                  ["bookmarks"],
+                  "readwrite"
+                );
+                const deleteObjectStore =
+                  deleteTransaction.objectStore(
+                    "bookmarks"
+                  );
+                const deleteRequest =
+                  deleteObjectStore.delete(bookmark.id);
+    
+                deleteRequest.onsuccess =
+                  (event) => {
+                    console.log(
+                      "Bookmark deleted from indexedDB"
+                    );
+                    bookmarkContainer.remove();
+                  };
+              });
+    
+              addNoteBtn.addEventListener(
+                "click",
+                () => {
+                  const noteText =
+                    document.createElement(
+                      "textarea"
+                    );
+                  noteText.rows =
+                    3;
+                  noteText.cols =
+                    30;
+                  noteText.classList.add(
+                    "note-input"
+                  );
+    
+                  note.appendChild(noteText);
+    
+                  const saveNoteBtn =
+                    document.createElement(
+                      "button"
+                    );
+                  saveNoteBtn.textContent =
+                    "Save Note";
+    
+                  note.appendChild(saveNoteBtn);
+    
+                  saveNoteBtn.addEventListener(
+                    "click",
+                    () => {
+                      const noteContent =
+                        noteText.value.trim();
+    
+                      if (noteContent) { 
+                        const updateTransaction = db.transaction(
+                      ["bookmarks"],
+                      "readwrite"
+                    );
+                    const updateObjectStore =
+                      updateTransaction.objectStore(
+                        "bookmarks"
+                      );
+
+                    // If the bookmark already has a notes array, push the new note to it
+                    // Otherwise, create a new notes array with the new note
+                    if (bookmark.notes) {
+                      bookmark.notes.push(
+                        noteContent
+                      );
+                    } else {
+                      bookmark.notes = [
+                        noteContent,
+                      ];
+                    }
+
+                    const updateRequest =
+                      updateObjectStore.put(
+                        bookmark
+                      );
+
+                    updateRequest.onsuccess =
+                      (event) => {
+                        console.log(
+                          "Bookmark updated with note in indexedDB"
+                        );
+
+                        // Create a new div to display the new note
+                        // Append it to the savedNote div
+                        const savedNoteDiv =
+                          document.createElement(
+                            "div"
+                          );
+                        savedNoteDiv.textContent =
+                          noteContent;
+                        savedNoteDiv.classList.add(
+                          "saved-note"
+                        );
+                        savedNote.appendChild(
+                          savedNoteDiv
+                        );
+
+                        const deleteNoteIcon =
+                          document.createElement(
+                            "span"
+                          );
+                        deleteNoteIcon.textContent =
+                          "❌";
+                        deleteNoteIcon.classList.add(
+                          "delete-icon"
+                        );
+                        savedNoteDiv.appendChild(
+                          deleteNoteIcon
+                        );
+
+                        deleteNoteIcon.addEventListener(
+                          "click",
+                          () => {
+                            // Remove the note from the notes array and update the bookmark in indexedDB
+                            const index =
+                              bookmark.notes.indexOf(
+                                noteContent
+                              );
+                            bookmark.notes.splice(
+                              index,
+                              1
+                            );
+
+                            // Create a new transaction and object store for each update
+                            const updateTransaction = db.transaction(
+                              ["bookmarks"],
+                              "readwrite"
+                            );
+                            const updateObjectStore =
+                              updateTransaction.objectStore(
+                                "bookmarks"
+                              );
+
+                            updateObjectStore.put(
+                              bookmark
+                            );
+
+                            // Remove the note div from the savedNote div
+                            savedNoteDiv.remove();
+                          }
+                        );
+
+                        // Remove the input and button elements
+                        noteText.remove();
+                        saveNoteBtn.remove();
+                      };
+                  }
+                }
+              );
+            }
+          );
+
+          addImageBtn.addEventListener(
+            "click",
+            () => {
+              const imageInput =
+                document.createElement("input");
+              imageInput.type = "file";
+              imageInput.accept = "image/*";
+              imageInput.classList.add("image-input");
+              imageInput.style.display = "none";
+
+              note.appendChild(imageInput);
+
+              imageInput.addEventListener(
+                "change",
+                () => {
+                  const file = imageInput.files[0];
+
+                  if (file) {
+                    const reader = new FileReader();
+
+                    reader.onload = (e) => {
+                      // Create a new transaction and object store for each update
+                      const updateTransaction = db.transaction(
+                        ["bookmarks"],
+                        "readwrite"
+                      );
+                      const updateObjectStore =
+                        updateTransaction.objectStore(
+                          "bookmarks"
+                        );
+
+                      // If the bookmark already has an images array, push the new image to it
+                      // Otherwise, create a new images array with the new image
+                      if (bookmark.images) {
+                        bookmark.images.push(
+                          e.target.result
+                        );
+                      } else {
+                        bookmark.images = [
+                          e.target.result,
+                        ];
+                      }
+
+                      const updateRequest =
+                        updateObjectStore.put(bookmark);
+
+                      updateRequest.onsuccess =
+                        (event) => {
+                          console.log(
+                            "Bookmark updated with image in indexedDB"
+                          );
+
+                          // Create a new img element to display the new image
+                          // Append it to the savedNote div
+                          const img =
+                            document.createElement("img");
+                          img.src = e.target.result;
+                          img.style.maxWidth = "100%";
+                          savedNote.appendChild(img);
+
+                          const deleteImageIcon =
+                            document.createElement("span");
+                          deleteImageIcon.textContent =
+                            "❌";
+                          deleteImageIcon.classList.add("delete-icon");
+                          img.parentNode.insertBefore(deleteImageIcon, img.nextSibling);
+
+                          deleteImageIcon.addEventListener("click", () => {
+                            // Remove the image from the images array and update the bookmark in indexedDB
+                            const index = bookmark.images.indexOf(e.target.result);
+                            bookmark.images.splice(index, 1);
+
+                            // Create a new transaction and object store for each update
+                            const updateTransaction = db.transaction(["bookmarks"], "readwrite");
+                            const updateObjectStore = updateTransaction.objectStore("bookmarks");
+
+                            updateObjectStore.put(bookmark);
+
+                            // Remove the img element and the delete icon
+                            img.remove();
+                            deleteImageIcon.remove();
+                          });
+
+                          // Remove the input element
+                          imageInput.remove();
+                        };
+                    };
+
+                    reader.readAsDataURL(file);
+                  }
+                });
+
+                imageInput.click();
+              });
+
+              categoryContent.appendChild(bookmarkContainer);
+
+              // If the bookmark already has notes or images, display them in the savedNote div
+              if (bookmark.notes) {
+                bookmark.notes.forEach((noteContent) => {
+                  const savedNoteDiv = document.createElement("div");
+                  savedNoteDiv.textContent = noteContent;
+                  savedNoteDiv.classList.add("saved-note");
+
+                  savedNote.appendChild(savedNoteDiv);
+
+                  const deleteNoteIcon = document.createElement(
+                    "span"
+                  );
+                  deleteNoteIcon.textContent = "❌";
+                  deleteNoteIcon.classList.add("delete-icon");
+
+                  savedNoteDiv.appendChild(deleteNoteIcon);
+
+                  deleteNoteIcon.addEventListener("click", () => {
+  // Remove the note from the notes array and update the bookmark in indexedDB
+  const index = bookmark.notes.indexOf(noteContent);
+  bookmark.notes.splice(index, 1);
+
+  // Declare and assign the updateTransaction and updateObjectStore variables
+  const updateTransaction = db.transaction(["bookmarks"], "readwrite");
+  const updateObjectStore = updateTransaction.objectStore("bookmarks");
+
+  updateObjectStore.put(bookmark);
+
+  // Remove the note div from the savedNote div
+  savedNoteDiv.remove();
+});
+                });
+              }
+
+              if (bookmark.images) {
+                bookmark.images.forEach((image) => {
+                  const img = document.createElement("img");
+                  img.src = image;
+                  img.style.maxWidth = "100%";
+
+                  savedNote.appendChild(img);
+
+                  const deleteImageIcon = document.createElement(
+                    "span"
+                  );
+                  deleteImageIcon.textContent = "❌";
+                  deleteImageIcon.classList.add("delete-icon");
+
+                  img.parentNode.insertBefore(
+                    deleteImageIcon,
+                    img.nextSibling
+                  );
+
+                  deleteImageIcon.addEventListener("click", () => {
+  // Remove the image from the images array and update the bookmark in indexedDB
+  const index = bookmark.images.indexOf(image);
+  bookmark.images.splice(index, 1);
+
+  // Declare and assign the updateTransaction and updateObjectStore variables
+  const updateTransaction = db.transaction(["bookmarks"], "readwrite");
+  const updateObjectStore = updateTransaction.objectStore("bookmarks");
+
+  updateObjectStore.put(bookmark);
+
+  // Remove the img element and the delete icon
+  img.remove();
+  deleteImageIcon.remove();
+});
+                });
+              }
+            });
+
+            categoryHeader.addEventListener("click", () => {
+              categoryHeader.classList.toggle("active");
+              categoryContent.classList.toggle("show");
+            });
+          }
+
+          const options = document.querySelectorAll(".option");
+
+          options.forEach((option) => {
+            option.disabled = true;
+
+            if (!option.classList.contains("correct")) {
+              option.classList.add("incorrect");
+            }
+          });
+        };
+      };
+    </script>
+  </body>
+</html>

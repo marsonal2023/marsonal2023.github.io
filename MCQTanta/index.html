@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MCQs</title>
+    <link href="assets/fontawesome-free-6.4.2-web/css/all.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background-color: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+        }
+
+        button {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .dark-mode {
+            background-color: #292e39; /* Nord dark blue black */
+            color: white;
+        }
+
+        .dark-mode .choice {
+            background-color: #313742;
+            color: white;
+            border-color: #d8e2dc;
+        }
+
+        .dark-mode .choice.correct {
+            background-color: #00a877;
+            color: #FFF;
+            border-color: #2a9d8f;
+        }
+
+        .dark-mode .choice.incorrect {
+            background-color: #cc444b;
+            color: #FFF;
+            border-color: #d9534f;
+        }
+      
+         .dark-mode .question {
+        display: block;
+        align-items: center;
+        color: #f3efd9;
+      } 
+
+      .dark-mode .category-header {
+        font-weight: bold;
+        cursor: pointer;
+        background-color: #f1faee;
+        box-shadow: 0 3px 5px rgba(0,0,0,0.1);
+        padding: 8px;
+        text-align: center;
+        border: 1px solid #d8e2dc;
+        width: 100%;
+        color: #65751d; 
+      }
+      .dark-mode .question-note {
+        background-color: #4a5759;
+      }  
+
+        /* Loader styles */
+        .loader {
+            border: 16px solid #f3f3f3;
+            border-top: 16px solid #3498db;
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none; /* Initially hidden */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Off-canvas styles */
+        .off-canvas {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 90%;
+    height: 100vh;
+    background-color: #f5f5f5;
+    transition: right 0.3s;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.3);
+    overflow-y: auto;
+    z-index: 200;
+}
+
+#bookmarks-content {
+    height: 100vh; /* Adjust for the height of the buttons */
+    overflow-y: auto;
+}
+
+#bookmarksIframe {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    display: block;
+}
+
+
+    .off-canvas .refresh-btn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+    .off-canvas .close-btn {
+    position: absolute;
+    top: 20px;
+    left: 60px; /* Adjust as needed based on your design preferences */
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+/* Make the header sticky */
+header {
+    position: sticky;
+    top: 0;
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    z-index: 100; /* Ensure it's above other content */
+}
+
+    </style>
+    <title>Disable Right-Click and Text Selection</title>
+     <script>
+          // Disable right-click context menu
+          document.addEventListener('contextmenu', function (e) {
+              e.preventDefault();
+          });
+    
+          // Disable text selection
+          document.addEventListener('selectstart', function (e) {
+              e.preventDefault();
+          });
+      </script>
+    
+</head>
+<body>
+  <header>
+    <nav>
+        <a href="index.html"><i class="fas fa-home"></i> </a>
+        <label for="page-dropdown">:</label>
+            <select name="page-dropdown" id="page-dropdown">
+              <option value="index.html">Home</option>
+                <optgroup label="forensictoxo">
+                <option value="forensictoxo/oldqb.html">Old QB</option>
+              </optgroup>
+              <optgroup label="surgery"> 
+                <option value="surgery/qb.html">QB</option>
+                <option value="surgery/amr.html">Amrmohsen</option>       
+                <option value="surgery/matary.html">Matary</option>
+              </optgroup>
+              <optgroup label="women"> 
+                <option value="women/qb.html">QB</option>
+                <option value="women/ayman.html">Dr.Ayman</option>
+                <option value="women/sg.html">Study guide</option>
+                <option value="women/kasr.html">ElKasr</option>       
+              </optgroup>
+            </select>
+
+    </nav>
+    <div>
+            <button onclick="location.reload();"><i class="fas fa-sync-alt"></i></button>
+            <button onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+            <button onclick="toggleOffCanvas()" disabled><i class="fas fa-bookmark"></i></button>
+        </div>
+    </header>
+    <main>
+        <!-- Loader -->
+        <div class="loader"></div>
+
+        <!-- Designated area for your raw HTML content -->
+        <div id="embedded-content">
+            <!-- Insert your full HTML content here -->
+            <!DOCTYPE html>
+            <html lang="ar">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Tanta MCQs</title>
+                <link rel="stylesheet" href="assets/fontawesome-free-6.4.2-web/css/all.css">
+                <style>
+                       @font-face {
+                      font-family: "RTL-Saudi-Bold";
+                      src: url('assets/RTL-Saudi-Bold.ttf') format('truetype');
+                    }  
+                    body {
+                        background: linear-gradient(45deg, #ffc6ff, #bdb2ff, #ffadad, #caffbf);
+                        background-size: 400% 400%;
+                        animation: gradientBG 10s infinite;
+                        font-family: "RTL-Saudi-Bold";
+
+                    }
+            
+                    @keyframes gradientBG {
+                        0% {
+                            background-position: 0% 50%;
+                        }
+                        50% {
+                            background-position: 100% 50%;
+                        }
+                        100% {
+                            background-position: 0% 50%;
+                        }
+                    }
+            
+                    .glass-container {
+                        margin-top: 60px;
+                        background: rgba(255, 255, 255, 0.3);
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+                        text-align: center;
+                        direction: rtl;
+                    }
+            
+                    p {
+                        font-size: 24px;
+                        line-height: 1.5;
+                    }
+            
+                    .social-icons {
+                        margin-top: 20px;
+                    }
+
+                    .social-icons a {
+                        margin: 0 10px;
+                        text-decoration: none;
+                        color: #333;
+                        display: inline-block;
+                        transition: transform 0.2s; /* Add a smooth transition effect */
+                    }
+
+                    .social-icons a:hover,
+                    .social-icons a:active {
+                        transform: scale(2); /* Increase the size on hover and touch */
+                    }
+
+                       @font-face {
+                      font-family: "PatrickHand-Regular";
+                      src: url('assets/PatrickHand-Regular.ttf') format('truetype');
+                    }  
+                    .marsonal {
+                        font-family: "PatrickHand-Regular";
+                        background: linear-gradient(135deg, #ff595e, #9e0059, #ff0054, #1dd3b0);
+                        background-clip: text ;
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        font-size: 28px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="glass-container">
+                    <p>الإصدار التجريبى التالت من تطبيق Tanta MCQs</p>
+                    <p>مكنش فيه وقت لتصميم الصفحة دى بس روح بسرعة عالقايمة وابتدى حل الأسئلة</p>
+                    <p>جميع مصادر الأسئلة مأخوذة من قنوات التليجرام</p>
+                    <p class="marsonal">Made by Marsonal</p>
+                    
+                    <div class="social-icons">
+                        <a href="https://www.youtube.com/channel/UCWiEUw6ciPukTFp-O8nTCmg" target="_blank"><i class="fab fa-youtube"></i></a>
+                        <a href="https://twitter.com/revmarsonal" target="_blank"><i class="fab fa-twitter"></i></a>
+                        <a href="https://t.me/marsonal" target="_blank"><i class="fab fa-telegram"></i></a>
+                    </div>
+                </div>
+            </body>
+            </html>
+            
+            
+          </div>
+        <!-- Off-canvas menu -->
+<!-- Off-canvas menu -->
+<div class="off-canvas">
+    <button class="refresh-btn" onclick="refreshOffCanvasContent()"><i class="fas fa-sync-alt"></i></button>
+    <!-- Designated area for your bookmarks page code -->
+    <button class="close-btn" onclick="toggleOffCanvas()"><i class="fas fa-times"></i></button>
+    <div id="bookmarks-content">
+        <!-- Embed the bookmarks page using an iframe -->
+        <iframe id="bookmarksIframe" src="bookmarks.html"  frameborder="0"></iframe>
+    </div>
+</div>
+    </main>
+    <script>
+      function toggleDarkMode() {
+    const body = document.body;
+    body.classList.toggle('dark-mode');
+
+    // Store the dark mode preference in Local Storage
+    if (body.classList.contains('dark-mode')) {
+        localStorage.setItem('darkMode', 'enabled');
+    } else {
+        localStorage.setItem('darkMode', 'disabled');
+    }
+}
+  
+      function toggleOffCanvas() {
+          const offCanvas = document.querySelector('.off-canvas');
+          if (offCanvas.style.right === '0%') {
+              offCanvas.style.right = '-100%';
+          } else {
+              offCanvas.style.right = '0%';
+          }
+      }
+  
+      // Show loader until content is fully loaded
+      window.onload = function() {
+    const loader = document.querySelector('.loader');
+    loader.style.display = 'none';
+
+    // Check for the dark mode preference in Local Storage
+    const darkModePreference = localStorage.getItem('darkMode');
+
+    if (darkModePreference === 'enabled') {
+        document.body.classList.add('dark-mode');
+    }
+}
+  
+      // Add event listener to the dropdown menu
+      document.querySelector('#page-dropdown').addEventListener('change', function() {
+          var selectedPage = this.value;
+          if (selectedPage) {
+              window.location.href = selectedPage; // Redirect to the selected page
+          }
+      });
+  
+      function refreshOffCanvasContent() {
+          const iframe = document.getElementById('bookmarksIframe');
+          iframe.src = iframe.src; // This will reload the iframe content
+      }
+  
+      document.querySelector('.dropbtn').addEventListener('click', function() {
+          document.querySelector('.dropdown-content').classList.toggle('show');
+      });
+  
+      // Close the dropdown menu if the user clicks outside of it
+      window.onclick = function(event) {
+          if (!event.target.matches('.dropbtn')) {
+              var dropdowns = document.getElementsByClassName('dropdown-content');
+              for (var i = 0; i < dropdowns.length; i++) {
+                  var openDropdown = dropdowns[i];
+                  if (openDropdown.classList.contains('show')) {
+                      openDropdown.classList.remove('show');
+                  }
+              }
+          }
+      };
+  </script>
+</body>
+</html>
