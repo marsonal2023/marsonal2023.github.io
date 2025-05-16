@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCQ Page</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="navbar.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-content">
+        <div class="search-filter-container">
+          <div class="filter-container">
+            <button id="filterButton" class="btn icon-btn">
+              <i class="fas fa-filter"></i>
+              <span id="questionCount" class="question-count"></span>
+            </button>
+          </div>
+          <div class="search-container">
+            <input id="searchInput" class="search-input" type="text" placeholder="Search...">
+            <button id="clearSearch" class="clear-search"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+        <div class="button-group">
+          <button id="toggleAnswers" class="btn icon-btn"><i class="fas fa-eye"></i></button>
+          <button id="toggleKeywords" class="btn icon-btn"><i class="fas fa-key"></i></button>
+          <button id="toggleNotes" class="btn icon-btn"><i class="fas fa-lightbulb"></i></button>
+          <button id="clearUserAnswers" class="btn btn-clear"><i class="fas fa-undo"></i></button>
+        </div>
+      </div>
+    </div>
+    <div id="questionsContainer"></div>
+  </div>
+
+  <div id="filterMenu" class="filter-menu">
+    <div class="filter-header">
+      <h2>Filters</h2>
+      <button class="close-btn" onclick="toggleFilterMenu()">&times;</button>
+    </div>
+    <div class="filter-content">
+      <div class="filter-group">
+        <label class="filter-option">
+          <input type="checkbox" id="starredFilter" /> <i class="fas fa-star"></i> Starred Questions
+        </label>
+      </div>
+      <hr/>
+      <div class="filter-group">
+        <label class="filter-option">
+          <input type="checkbox" class="answered-filter" value="unanswered" /> Unanswered Questions
+        </label>
+        <label class="filter-option">
+          <input type="checkbox" class="answered-filter" value="correct" /> Correctly Answered
+        </label>
+        <label class="filter-option">
+          <input type="checkbox" class="answered-filter" value="incorrect" /> Incorrectly Answered
+        </label>
+      </div>
+      <hr/>
+      <div class="filter-group filter-tags">
+      </div>
+      <button class="clear-filters-btn" onclick="clearAllFilters()">Clear All Filters</button>
+    </div>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="note-component.js"></script>
+  <script src="image-component.js"></script>
+  <script src="navbar.js"></script>
+  <script>
+    (() => {
+      let questions = [], searchTerm = "", showingAnswers = false, showingKeywords = false, showingNotes = false, expandedCategories = {}, toggleNotesState = 0;
+      let storedFilteredQuestions = null;
+      const generalId = "surgery", quizId = "quiz", $ = document.querySelector.bind(document);
+
+      let starredFilter = false;
+      let answeredFilters = new Set();
+      let tagFilters = new Set();
+
+      const initQuestions = () => {
+        questions = initialQuestions.map(q => ({
+          ...q,
+          category: q.category.trim(),
+          userAnswer: JSON.parse(localStorage.getItem(`question_${q.id}`)) || [],
+          showingNote: false,
+          starred: JSON.parse(localStorage.getItem(`starred_${q.id}`)) || false
+        }));
+        expandedCategories = Object.fromEntries([...new Set(questions.map(q => q.category))].map(category => [category, false]));
+        populateTagsFilter();
+      };
+
+      const populateTagsFilter = () => {
+        const tags = [...new Set(questions.flatMap(q => q.tags || []).filter(tag => tag))];
+        const container = document.querySelector('.filter-tags');
+        container.innerHTML = tags.map(tag => `
+          <label class="filter-option">
+            <input type="checkbox" class="tag-filter" value="${tag}" /> ${tag}
+          </label>
+        `).join('');
+      };
+
+      const filterQuestions = () => {
+        return questions.filter(q => {
+          let passesStarredFilter = !starredFilter || q.starred;
+          let passesAnsweredFilter = answeredFilters.size === 0 ||
+            (answeredFilters.has('unanswered') && q.userAnswer.length === 0) ||
+            (answeredFilters.has('correct') && q.userAnswer.length > 0 && areAnswersCorrect(q)) ||
+            (answeredFilters.has('incorrect') && q.userAnswer.length > 0 && !areAnswersCorrect(q));
+          let passesTagFilter = tagFilters.size === 0 || (q.tags && q.tags.some(tag => tagFilters.has(tag)));
+          let matchesSearch = searchTerm === "" || q.text.toLowerCase().includes(searchTerm) || q.choices.some(c => c.toLowerCase().includes(searchTerm));
+          return passesStarredFilter && passesAnsweredFilter && passesTagFilter && matchesSearch;
+        });
+      };
+
+      const areAnswersCorrect = (question) =>
+        question.userAnswer.every(a => question.correctAnswers.includes(a)) &&
+        question.userAnswer.length === question.correctAnswers.length;
+
+      const groupQuestionsByCategoryWithCustomList = (questionsList) => {
+        let grouped = {};
+        questionsList.forEach((q, index) => {
+          if (!grouped[q.category]) {
+            grouped[q.category] = [];
+          }
+          grouped[q.category].push({ ...q, displayNumber: index + 1 });
+        });
+        return grouped;
+      };
+
+      const debounce = (func, delay) => {
+        let debounceTimer;
+        return function() {
+          const context = this;
+          const args = arguments;
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => func.apply(context, args), delay);
+        };
+      };
+
+      const handleSearchChange = debounce(() => {
+        searchTerm = $('#searchInput').value.toLowerCase();
+        storedFilteredQuestions = filterQuestions();
+        renderQuestions();
+      }, 300);
+
+      const shouldDisplayNoteForQuestion = (question) => {
+        if (toggleNotesState === 2) {
+          return false;
+        }
+        if (toggleNotesState === 1) {
+          return true;
+        }
+        return showingNotes || question.showingNote;
+      };
+
+      const handleChoiceClick = (questionId, choiceIndex) => {
+        const question = questions.find(q => q.id === questionId);
+        if (question) {
+          const newUserAnswer = question.userAnswer.includes(choiceIndex)
+            ? question.userAnswer.filter(i => i !== choiceIndex)
+            : [...question.userAnswer, choiceIndex];
+          localStorage.setItem(`question_${questionId}`, JSON.stringify(newUserAnswer));
+          question.userAnswer = newUserAnswer;
+
+          if (toggleNotesState !== 2) {
+            question.showingNote = true;
+          }
+
+          const questionCard = document.querySelector(`.question-card[data-question-id="${questionId}"]`);
+          if (questionCard) {
+            const choiceButtons = questionCard.querySelectorAll('.choice-button');
+            choiceButtons.forEach((button, index) => {
+              button.className = "choice-button " + getChoiceClass(question, index);
+              if (showingAnswers || question.userAnswer.length > 0) {
+                button.disabled = true;
+              }
+            });
+
+            const notePlaceholder = questionCard.querySelector('.note-placeholder');
+            if (notePlaceholder) {
+              const displayNote = shouldDisplayNoteForQuestion(question);
+              notePlaceholder.style.display = displayNote ? 'block' : 'none';
+              if (displayNote && !notePlaceholder.querySelector('note-component')) {
+                notePlaceholder.innerHTML = `<note-component data-note="${encodeURIComponent(question.note)}"></note-component>`;
+              }
+            }
+          }
+
+          updateQuestionCount();
+          updateCategoryCounts();
+        }
+      };
+
+      const toggleAnswers = () => {
+        showingAnswers = !showingAnswers;
+        $('#toggleAnswers i').classList.toggle('fa-eye-slash', showingAnswers);
+        $('#toggleAnswers i').classList.toggle('fa-eye', !showingAnswers);
+
+        document.querySelectorAll('.choice-button').forEach(button => {
+          button.disabled = showingAnswers;
+        });
+
+        questions.forEach(question => {
+          const questionCard = document.querySelector(`.question-card[data-question-id="${question.id}"]`);
+          if (questionCard) {
+            const choiceButtons = questionCard.querySelectorAll('.choice-button');
+            choiceButtons.forEach((button, index) => {
+              button.className = "choice-button " + getChoiceClass(question, index);
+            });
+          }
+        });
+      };
+
+      const toggleKeywords = () => {
+        showingKeywords = !showingKeywords;
+
+        questions.forEach(question => {
+          const questionCard = document.querySelector(`.question-card[data-question-id="${question.id}"]`);
+          if (questionCard) {
+            const questionText = questionCard.querySelector('.question-text');
+            if (questionText) {
+              questionText.innerHTML = processContent(question.text, showingKeywords ? question.keywords : null);
+            }
+            const choiceContents = questionCard.querySelectorAll('.choice-content');
+            choiceContents.forEach((choiceContent, index) => {
+              choiceContent.innerHTML = processContent(question.choices[index]);
+            });
+          }
+        });
+      };
+
+      const toggleNotes = () => {
+        toggleNotesState = (toggleNotesState + 1) % 3;
+        const toggleNotesIcon = $('#toggleNotes i');
+        toggleNotesIcon.classList.toggle('fa-lightbulb-on', toggleNotesState ===1);
+        toggleNotesIcon.classList.toggle('fa-lightbulb', toggleNotesState !==1);
+        $('#toggleNotes').classList.toggle('notes-hidden', toggleNotesState ===2);
+        if (toggleNotesState ===1) {
+          showingNotes = true;
+        } else {
+          showingNotes = false;
+          if (toggleNotesState ===2) {
+            questions.forEach(q => { q.showingNote = false; });
+          }
+        }
+
+        document.querySelectorAll('.note-placeholder').forEach(notePlaceholder => {
+          const questionId = notePlaceholder.closest('.question-card').dataset.questionId;
+          const question = questions.find(q => q.id === questionId);
+          if (notePlaceholder && question) {
+            const displayNote = shouldDisplayNoteForQuestion(question);
+            notePlaceholder.style.display = displayNote ? 'block' : 'none';
+            if (displayNote && !notePlaceholder.querySelector('note-component')) {
+              notePlaceholder.innerHTML = `<note-component data-note="${encodeURIComponent(question.note)}"></note-component>`;
+            } else if (!displayNote) {
+              notePlaceholder.innerHTML = '';
+            }
+          }
+        });
+      };
+
+      const clearUserAnswers = () => {
+        questions.forEach(q => {
+          localStorage.removeItem(`question_${q.id}`);
+          q.userAnswer = [];
+          q.showingNote = false;
+        });
+
+        document.querySelectorAll('.choice-button').forEach(button => {
+          button.disabled = false;
+        });
+
+        questions.forEach(question => {
+          const questionCard = document.querySelector(`.question-card[data-question-id="${question.id}"]`);
+          if (questionCard) {
+            const choiceButtons = questionCard.querySelectorAll('.choice-button');
+            choiceButtons.forEach((button, index) => {
+              button.className = "choice-button " + getChoiceClass(question, index);
+            });
+
+            const notePlaceholder = questionCard.querySelector('.note-placeholder');
+            if (notePlaceholder) {
+              notePlaceholder.style.display = 'none';
+              notePlaceholder.innerHTML = '';
+            }
+          }
+        });
+
+        updateQuestionCount();
+        updateCategoryCounts();
+      };
+
+      const toggleStar = (questionId) => {
+        const question = questions.find(q => q.id === questionId);
+        if (question) {
+          question.starred = !question.starred;
+          localStorage.setItem(`starred_${questionId}`, JSON.stringify(question.starred));
+
+          const questionCard = document.querySelector(`.question-card[data-question-id="${questionId}"]`);
+          if (questionCard) {
+            const starIcon = questionCard.querySelector('.fa-star');
+            if (starIcon) {
+              starIcon.classList.toggle('fas', question.starred);
+              starIcon.classList.toggle('far', !question.starred);
+            }
+          }
+
+          updateQuestionCount();
+        }
+      };
+
+      const copyToClipboard = (questionId) => {
+        const question = questions.find(q => q.id === questionId);
+        if (question) {
+          const text = `${question.text}\n${question.choices.map((c, i) => `${String.fromCharCode(65 + i)}. ${c}`).join("\n")}`;
+          navigator.clipboard.writeText(text).catch(err => console.error("Error copying:", err));
+        }
+      };
+
+      const toggleCategory = (category) => {
+        expandedCategories[category] = !expandedCategories[category];
+
+        const categorySection = document.querySelector(`.category-section[data-category="${category}"]`);
+        if (categorySection) {
+          if (expandedCategories[category]) {
+            const existingQuestionsContainer = categorySection.querySelector('.category-questions');
+            if (!existingQuestionsContainer) {
+              const categoryQuestionsContainer = document.createElement('div');
+              categoryQuestionsContainer.className = 'category-questions';
+              categoryQuestionsContainer.dataset.category = category;
+
+              const categoryQuestions = groupQuestionsByCategoryWithCustomList(storedFilteredQuestions || filterQuestions())[category];
+              if (categoryQuestions) {
+                const questionsHTML = categoryQuestions.map(q => createQuestionCard(q, q.displayNumber).outerHTML).join('');
+                categoryQuestionsContainer.innerHTML = questionsHTML;
+                categorySection.appendChild(categoryQuestionsContainer);
+              }
+            } else {
+              existingQuestionsContainer.style.display = 'block';
+            }
+
+            setTimeout(() => {
+              const headerHeight = document.querySelector('.header').offsetHeight;
+              const yOffset = categorySection.getBoundingClientRect().top + window.pageYOffset - headerHeight - 10;
+              window.scrollTo({ top: yOffset, behavior: 'smooth' });
+            }, 0);
+
+          } else {
+            const categoryQuestions = categorySection.querySelector('.category-questions');
+            if (categoryQuestions) {
+              categoryQuestions.style.display = 'none';
+            }
+            const categoryButton = categorySection.querySelector('.category-button');
+            if (categoryButton) {
+              categoryButton.classList.add('category-highlight');
+              setTimeout(() => {
+                categoryButton.classList.remove('category-highlight');
+              }, 2000);
+            }
+          }
+        }
+      };
+
+      const getChoiceClass = (question, index) => {
+        if (showingAnswers || question.userAnswer.length > 0) {
+          if (question.correctAnswers.includes(index)) return 'choice-correct';
+          if (question.userAnswer.includes(index)) return 'choice-incorrect';
+        }
+        return 'choice-default';
+      };
+
+      const processContent = (content, keywords) => {
+        let processedContent = content.replace(/\$\$IMG\$\$(.*?)\$\$\/IMG\$\$/g, (match, p1) => {
+          const imagePath = p1.replace(/\\/g, '/').trim();
+          return `<br><img src="${imagePath}" class="thumbnail" onclick="showFullscreenImage('${imagePath}')">`;
+        });
+
+        if (keywords && keywords.length > 0 && showingKeywords) {
+          const regex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'gi');
+          processedContent = processedContent.replace(regex, '<span class="highlight">$1</span>');
+        }
+        return processedContent;
+      };
+
+      const createQuestionCard = (question, number) => {
+        const card = document.createElement("div");
+        card.className = "question-card";
+        card.dataset.questionId = question.id;
+        card.__question = question;
+        const displayNote = shouldDisplayNoteForQuestion(question);
+        card.innerHTML = `
+          <div class="question-actions">
+            <span class="question-number">${number}</span>
+            <i class="${question.starred ? 'fas' : 'far'} fa-star action-icon" onclick="toggleStar('${question.id}')"></i>
+            <i class="fas fa-copy action-icon" onclick="copyToClipboard('${question.id}')"></i>
+          </div>
+          <div class="question-text question-content">${processContent(question.text, showingKeywords ? question.keywords : null)}</div>
+          <div class="choices">
+            ${question.choices.map((choice, index) => `
+              <button class="choice-button ${getChoiceClass(question, index)}" 
+              onclick="handleChoiceClick('${question.id}', ${index})"
+              ${showingAnswers || question.userAnswer.length > 0 ? 'disabled' : ''}>
+              ${String.fromCharCode(65 + index)}. 
+              <span class="choice-content">${processContent(choice)}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div class="note-placeholder" style="display: ${displayNote ? 'block' : 'none'}">
+            ${displayNote ? `<note-component data-note="${encodeURIComponent(question.note)}"></note-component>` : ''}
+          </div>
+        `;
+        return card;
+      };
+
+      const renderQuestions = () => {
+        const container = $('#questionsContainer');
+        let questionsToRender = storedFilteredQuestions !== null ? storedFilteredQuestions : filterQuestions();
+        const groupedQuestions = groupQuestionsByCategoryWithCustomList(questionsToRender);
+
+        container.innerHTML = '';
+        Object.entries(groupedQuestions).forEach(([category, categoryQuestions]) => {
+          const categorySection = document.createElement('div');
+          categorySection.className = 'category-section';
+          categorySection.dataset.category = category.trim();
+
+          const categoryButton = document.createElement('button');
+          categoryButton.className = 'category-button';
+          categoryButton.dataset.category = category.trim();
+          categoryButton.onclick = () => toggleCategory(category);
+          categoryButton.innerHTML = `${category}【<span class="category-count" data-category="${category.trim()}">${getCategorySolvedCount(category, categoryQuestions)}</span>】`;
+          categorySection.appendChild(categoryButton);
+
+          if (expandedCategories[category]) {
+            const categoryQuestionsContainer = document.createElement('div');
+            categoryQuestionsContainer.className = 'category-questions';
+            categoryQuestionsContainer.dataset.category = category;
+
+            const questionsHTML = categoryQuestions.map(q => createQuestionCard(q, q.displayNumber).outerHTML).join('');
+            categoryQuestionsContainer.innerHTML = questionsHTML;
+            categorySection.appendChild(categoryQuestionsContainer);
+          }
+
+          container.appendChild(categorySection);
+        });
+
+        updateQuestionCount();
+      };
+
+      const getCategorySolvedCount = (category, categoryQuestions) => {
+        const solved = categoryQuestions.filter(q => q.userAnswer.length > 0).length;
+        return `${solved}/${categoryQuestions.length}`;
+      };
+
+      const updateQuestionCount = () => {
+        const filteredQuestions = storedFilteredQuestions !== null ? storedFilteredQuestions : filterQuestions();
+        const totalQuestions = filteredQuestions.length;
+        const solvedQuestions = filteredQuestions.filter(q => q.userAnswer.length > 0).length;
+        $('#questionCount').textContent = `${solvedQuestions}/${totalQuestions}`;
+      };
+
+      const updateCategoryCounts = () => {
+        const groupedQuestions = groupQuestionsByCategoryWithCustomList(storedFilteredQuestions !== null ? storedFilteredQuestions : filterQuestions());
+        Object.entries(groupedQuestions).forEach(([category, categoryQuestions]) => {
+          const countElement = $(`.category-count[data-category="${category.trim()}"]`);
+          if (countElement) {
+            countElement.textContent = getCategorySolvedCount(category, categoryQuestions);
+          }
+        });
+      };
+
+      const toggleFilterMenu = () => {
+        $('#filterMenu').classList.toggle('show');
+      };
+
+      const applyFilters = () => {
+        starredFilter = $('#starredFilter').checked;
+        answeredFilters.clear();
+        document.querySelectorAll('.answered-filter:checked').forEach(el => answeredFilters.add(el.value));
+        tagFilters.clear();
+        document.querySelectorAll('.tag-filter:checked').forEach(el => tagFilters.add(el.value));
+        storedFilteredQuestions = filterQuestions();
+        renderQuestions();
+      };
+
+      const clearAllFilters = () => {
+        starredFilter = false;
+        $('#starredFilter').checked = false;
+        answeredFilters.clear();
+        document.querySelectorAll('.answered-filter').forEach(el => el.checked = false);
+        tagFilters.clear();
+        document.querySelectorAll('.tag-filter').forEach(el => el.checked = false);
+        storedFilteredQuestions = null;
+        renderQuestions();
+      };
+
+      document.addEventListener("DOMContentLoaded", () => {
+        initQuestions();
+        renderQuestions();
+        $('#searchInput').addEventListener("input", handleSearchChange);
+        $('#clearSearch').addEventListener("click", () => {
+          $('#searchInput').value = "";
+          handleSearchChange();
+        });
+        $('#toggleAnswers').addEventListener("click", toggleAnswers);
+        $('#toggleKeywords').addEventListener("click", toggleKeywords);
+        $('#toggleNotes').addEventListener("click", toggleNotes);
+        $('#clearUserAnswers').addEventListener("click", clearUserAnswers);
+        $('#filterButton').addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleFilterMenu();
+        });
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('#filterMenu') && !e.target.closest('#filterButton')) {
+            $('#filterMenu').classList.remove('show');
+          }
+        });
+        document.querySelector('.filter-content').addEventListener('change', applyFilters);
+      });
+
+      window.handleChoiceClick = handleChoiceClick;
+      window.toggleStar = toggleStar;
+      window.copyToClipboard = copyToClipboard;
+      window.toggleCategory = toggleCategory;
+      window.toggleFilterMenu = toggleFilterMenu;
+      window.clearAllFilters = clearAllFilters;
+    })();
+  </script>
+</body>
+</html>

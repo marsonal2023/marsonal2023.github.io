@@ -1,0 +1,228 @@
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 10px;
+    box-shadow: 0 0 2px rgba(0,0,0,0.1);
+    position: relative;
+    width: 100%;
+  }
+  
+  .navbar-left, .navbar-right {
+    display: flex;
+    align-items: center;
+    flex: 1;
+  }
+  
+  .navbar-left {
+    justify-content: flex-start;
+  }
+  
+  .navbar-right {
+    justify-content: flex-end;
+  }
+  
+  .nav-icon {
+    color: #00264d;
+    font-size: 1rem;
+    text-decoration: none;
+    padding: 8px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    transition: color 0.3s ease;
+  }
+  
+  .nav-icon:hover {
+    color: #004d99;
+  }
+  
+  .dropdown {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .dropbtn {
+    background: none;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #00264d;
+    font-weight: 500;
+    transition: color 0.3s ease;
+  }
+  
+  .dropbtn:hover {
+    color: #004d99;
+  }
+  
+  .dropbtn i {
+    font-size: 0.8rem;
+  }
+  
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #ffffff;
+    min-width: 220px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    z-index: 1000;
+    border: 1px solid #e6e6e6;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  
+  .dropdown-content.show {
+    display: block;
+  }
+  
+  .dropdown-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: center;
+  }
+  
+  .dropdown-item {
+    position: relative;
+    text-align: center;
+    padding-left: 0;
+  }
+  
+  .dropdown-item a {
+    display: block;
+    padding: 12px 15px;
+    text-decoration: none;
+    color: #00264d;
+    transition: background-color 0.3s ease;
+    white-space: nowrap;
+    text-align: center;
+    padding-left: 0;
+  }
+  
+  .dropdown-item:hover > a {
+    background-color: #f8f9fa;
+    color: #004d99;
+  }
+  
+.has-submenu > a::after {  
+    content: '›';  
+    position: absolute;
+    right: 5px;    
+    font-size: 1.2rem;
+  }
+  
+.has-submenu > a {
+    padding-right: 2px; 
+  }
+  
+  .submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background-color: #ffffff;
+    min-width: 220px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    z-index: 1001;
+    border-top: 1px solid #e6e6e6;
+    border-right: 1px solid #e6e6e6;
+    border-bottom: 1px solid #e6e6e6;
+    border-left: none;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  
+  .dropdown-item:hover > .submenu {
+    display: block;
+  }
+  
+  .submenu li {
+    text-align: center;
+    padding-left: 0;
+  }
+  
+  .submenu li a {
+    padding: 12px 15px;
+    display: block;
+    text-decoration: none;
+    color: #00264d;
+    transition: background-color 0.3s ease;
+    white-space: nowrap;
+    padding-left: 0;
+  }
+  
+  .submenu li a:hover {
+    background-color: #f8f9fa;
+    color: #004d99;
+  }
+  
+  /* First and last items border radius */
+  .dropdown-item:first-child > a {
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+  }
+  
+  .dropdown-item:last-child > a {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+  }
+  
+  .submenu li:first-child a {
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+  }
+  
+  .submenu li:last-child a {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+  }
+  
+  /* Subtle separator between items */
+  .dropdown-item:not(:last-child) {
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .submenu li:not(:last-child) {
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  /* Z-index management */
+  .navbar {
+    z-index: 1000;
+  }
+  
+  .header {
+    z-index: 999;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .dropdown {
+      position: relative;
+      left: auto;
+      transform: none;
+    }
+    
+    .dropdown-content {
+      left: 0;
+      transform: none;
+    }
+    
+    .submenu {
+      right: auto;
+    }
+  }

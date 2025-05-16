@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>search</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="navbar.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-content">
+        <div class="search-filter-container">
+          <div class="filter-container">
+            <button id="filterButton" class="btn icon-btn">
+              <i class="fas fa-filter"></i>
+              <span id="questionCount" class="question-count"></span>
+            </button>
+          </div>
+          <div class="search-container">
+            <input id="searchInput" class="search-input" type="text" placeholder="Search...">
+            <button id="searchButton" class="search-button"><i class="fas fa-search"></i></button>
+            <button id="clearSearch" class="clear-search"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+        <div class="button-group">
+          <button id="toggleAnswers" class="btn icon-btn"><i class="fas fa-eye"></i></button>
+          <button id="toggleKeywords" class="btn icon-btn"><i class="fas fa-key"></i></button>
+          <button id="toggleNotes" class="btn icon-btn"><i class="fas fa-lightbulb"></i></button>
+        </div>
+      </div>
+    </div>
+    <div id="searchResults"></div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <div id="filterMenu" class="filter-menu">
+    <div class="filter-header">
+      <h2>Filters</h2>
+      <button class="close-btn" id="closeFilterMenu">&times;</button>
+    </div>
+    <div class="filter-content">
+      <div class="filter-group">
+        <label class="filter-option">
+          <input type="checkbox" id="starredFilter" />
+          <i class="fas fa-star"></i> Starred Questions
+        </label>
+      </div>
+      <hr/>
+      <div class="filter-group">
+        <label class="filter-option">
+          <input type="checkbox" class="answered-filter" value="unanswered" /> Unanswered Questions
+        </label>
+        <label class="filter-option">
+          <input type="checkbox" class="answered-filter" value="correct" /> Correctly Answered
+        </label>
+        <label class="filter-option">
+          <input type="checkbox" class="answered-filter" value="incorrect" /> Incorrectly Answered
+        </label>
+      </div>
+      <hr/>
+      <div class="filter-group filter-dropdown">
+        <div class="filter-option dropdown-toggle" data-type="tags"> Tags <i class="fas fa-chevron-down"></i> </div>
+        <div class="dropdown-content" id="tagsDropdown"></div>
+      </div>
+      <hr/>
+      <div class="filter-group filter-dropdown">
+        <div class="filter-option dropdown-toggle" data-type="category"> Categories <i class="fas fa-chevron-down"></i> </div>
+        <div class="dropdown-content" id="categoryDropdown"></div>
+      </div>
+      <div class="filter-group filter-dropdown">
+        <div class="filter-option dropdown-toggle" data-type="quizId"> Quiz IDs <i class="fas fa-chevron-down"></i> </div>
+        <div class="dropdown-content" id="quizIdDropdown"></div>
+      </div>
+      <div class="filter-group filter-dropdown">
+        <div class="filter-option dropdown-toggle" data-type="generalId"> General IDs <i class="fas fa-chevron-down"></i> </div>
+        <div class="dropdown-content" id="generalIdDropdown"></div>
+      </div>
+      <button class="clear-filters-btn" id="clearFiltersBtn">Clear All Filters</button>
+    </div>
+  </div>
+  <div class="loading-icon" id="loadingIcon">
+    <i class="fas fa-spinner fa-spin fa-3x"></i>
+  </div>
+
+  <!-- Include your scripts -->
+  <script src="questions.js"></script>
+  <script src="note-component.js"></script>
+  <script src="image-component.js"></script>
+  <script src="navbar.js"></script>
+  <script>
+    (() => {
+      let allQuestions = [];
+      let filteredQuestions = [];
+      let currentPage = 1;
+      const pageSize = 75; // Adjusted for better performance
+      let showingAnswers = false;
+      let showingKeywords = false;
+      let toggleNotesState = 0;
+      let showingNotes = false;
+
+      let debounceTimeout;
+
+      const $ = document.querySelector.bind(document);
+      const $$ = document.querySelectorAll.bind(document);
+
+      // Variables to store selected filters
+      let selectedStarred = false;
+      let selectedAnsweredFilters = new Set();
+      let selectedCategoryFilters = new Set();
+      let selectedQuizIdFilters = new Set();
+      let selectedGeneralIdFilters = new Set();
+      let selectedTagFilters = new Set();
+
+      const init = () => {
+        allQuestions = [];
+
+        for (let key in window) {
+          if (window.hasOwnProperty(key) && key.startsWith('allQuestions') && Array.isArray(window[key])) {
+            allQuestions = allQuestions.concat(window[key]);
+          }
+        }
+
+        allQuestions.forEach(q => {
+          q.userAnswer = JSON.parse(localStorage.getItem(`question_${q.id}`)) || [];
+          q.starred = JSON.parse(localStorage.getItem(`starred_${q.id}`)) || false;
+          q.showingNote = false;
+        });
+
+        // Initially populate filters with all questions
+        populateFilterDropdowns([]);
+
+        // Remove the event listener for 'input' event
+        // $('#searchInput').addEventListener('input', debounce(handleSearch, 300));
+
+        // Add event listener for 'searchButton' click
+        $('#searchButton').addEventListener('click', handleSearch);
+        $('#searchInput').addEventListener('keydown', function(event){
+          if(event.key === 'Enter'){
+            event.preventDefault();
+            handleSearch();
+          }
+        });
+
+        $('#clearSearch').addEventListener('click', () => {
+          $('#searchInput').value = '';
+          // Clear existing filters
+          clearAllFilters();
+          // Since search input is cleared, we need to clear the search results
+          filteredQuestions = [];
+          currentPage = 1;
+          $('#questionCount').textContent = `0`;
+          renderQuestions();
+        });
+
+        // Initially, do not display any questions until the user makes a search
+        filteredQuestions = [];
+        $('#questionCount').textContent = `0`;
+        renderQuestions();
+
+        $('#toggleAnswers').addEventListener('click', toggleAnswers);
+        $('#toggleKeywords').addEventListener('click', toggleKeywords);
+        $('#toggleNotes').addEventListener('click', toggleNotes);
+        $('#filterButton').addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFilterMenu();
+        });
+
+        $('#closeFilterMenu').addEventListener('click', toggleFilterMenu);
+        $('#clearFiltersBtn').addEventListener('click', () => {
+          clearAllFilters();
+          filteredQuestions = [];
+          currentPage = 1;
+          $('#questionCount').textContent = `0`;
+          renderQuestions();
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('.filter-dropdown') && !e.target.closest('#filterMenu') && !e.target.closest('#filterButton')) {
+            document.querySelectorAll('.dropdown-content').forEach(drop => drop.classList.remove('show'));
+            $('#filterMenu').classList.remove('show');
+          }
+
+          if (!e.target.closest('.dropdown-content') && !e.target.closest('.dropdown-toggle')) {
+            document.querySelectorAll('.dropdown-content').forEach(drop => drop.classList.remove('show'));
+          }
+        });
+
+        $('#filterMenu').addEventListener('change', handleFilterChange);
+        $('#starredFilter').addEventListener('change', handleFilterChange);
+
+        const dropdownToggles = $$('.filter-dropdown .dropdown-toggle');
+        dropdownToggles.forEach(toggle => {
+          toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const type = toggle.dataset.type;
+            document.getElementById(`${type}Dropdown`).classList.toggle('show');
+          });
+        });
+      };
+
+      const populateFilterDropdowns = (questions) => {
+        const categories = [...new Set(questions.map(q => q.category.trim()))].sort();
+        const quizIds = [...new Set(questions.map(q => q.quizId))].sort();
+        const generalIds = [...new Set(questions.map(q => q.generalId))].sort();
+        const tags = [...new Set(questions.flatMap(q => q.tags || []).filter(tag => tag))].sort();
+
+        const populateDropdown = (elementId, items, className, selectedFilters) => {
+          const container = $(elementId);
+          container.innerHTML = items.map(item => `
+            <label class="filter-option">
+              <input type="checkbox" class="${className}" value="${item}" ${selectedFilters.has(item) ? 'checked' : ''}/> ${item}
+            </label>
+          `).join('');
+          container.querySelectorAll('input').forEach(input => {
+            input.addEventListener('change', handleFilterChange);
+          });
+        };
+
+        populateDropdown('#categoryDropdown', categories, 'category-filter', selectedCategoryFilters);
+        populateDropdown('#quizIdDropdown', quizIds, 'quizId-filter', selectedQuizIdFilters);
+        populateDropdown('#generalIdDropdown', generalIds, 'generalId-filter', selectedGeneralIdFilters);
+        populateDropdown('#tagsDropdown', tags, 'tag-filter', selectedTagFilters);
+      };
+
+      const handleFilterChange = () => {
+        collectSelectedFilters();
+        handleSearch();
+      };
+
+      const debounce = (func, delay) => {
+        return (...args) => {
+          clearTimeout(debounceTimeout);
+          debounceTimeout = setTimeout(() => func.apply(this, args), delay);
+        };
+      };
+
+      const collectSelectedFilters = () => {
+        selectedStarred = $('#starredFilter').checked;
+
+        selectedAnsweredFilters.clear();
+        document.querySelectorAll('.answered-filter:checked').forEach(cb => selectedAnsweredFilters.add(cb.value));
+
+        selectedCategoryFilters.clear();
+        document.querySelectorAll('.category-filter:checked').forEach(cb => selectedCategoryFilters.add(cb.value));
+
+        selectedQuizIdFilters.clear();
+        document.querySelectorAll('.quizId-filter:checked').forEach(cb => selectedQuizIdFilters.add(cb.value));
+
+        selectedGeneralIdFilters.clear();
+        document.querySelectorAll('.generalId-filter:checked').forEach(cb => selectedGeneralIdFilters.add(cb.value));
+
+        selectedTagFilters.clear();
+        document.querySelectorAll('.tag-filter:checked').forEach(cb => selectedTagFilters.add(cb.value));
+      };
+
+      const handleSearch = () => {
+        const searchTerm = $('#searchInput').value.trim().toLowerCase();
+        if (searchTerm === '' && !selectedStarred && selectedAnsweredFilters.size === 0 && selectedCategoryFilters.size === 0 && selectedQuizIdFilters.size === 0 && selectedGeneralIdFilters.size === 0 && selectedTagFilters.size === 0) {
+          // If there is no search term and no filters selected, do not display any questions
+          filteredQuestions = [];
+          currentPage = 1;
+          $('#questionCount').textContent = `0`;
+          renderQuestions();
+          // Also, populate filters with all questions (empty filters)
+          populateFilterDropdowns([]);
+          return;
+        }
+
+        $('#loadingIcon').classList.add('show');
+
+        setTimeout(() => {
+          collectSelectedFilters();
+
+          // First filter by search term
+          let searchFilteredQuestions = allQuestions.filter(q => {
+            const matchesSearch = searchTerm === '' || q.text.toLowerCase().includes(searchTerm) || q.choices.some(c => c.toLowerCase().includes(searchTerm));
+            return matchesSearch;
+          });
+
+          // Then filter by the filters
+          filteredQuestions = searchFilteredQuestions.filter(q => {
+            const matchesStarred = !selectedStarred || q.starred;
+
+            let matchesAnsweredFilter = selectedAnsweredFilters.size === 0 ||
+              (selectedAnsweredFilters.has('unanswered') && q.userAnswer.length === 0) ||
+              (selectedAnsweredFilters.has('correct') && q.userAnswer.length > 0 && areAnswersCorrect(q)) ||
+              (selectedAnsweredFilters.has('incorrect') && q.userAnswer.length > 0 && !areAnswersCorrect(q));
+
+            const matchesCategory = selectedCategoryFilters.size === 0 || selectedCategoryFilters.has(q.category);
+            const matchesQuizId = selectedQuizIdFilters.size === 0 || selectedQuizIdFilters.has(q.quizId);
+            const matchesGeneralId = selectedGeneralIdFilters.size === 0 || selectedGeneralIdFilters.has(q.generalId);
+            const matchesTags = selectedTagFilters.size === 0 || (q.tags && q.tags.some(tag => selectedTagFilters.has(tag)));
+
+            return matchesStarred && matchesAnsweredFilter && matchesCategory && matchesQuizId && matchesGeneralId && matchesTags;
+          });
+
+          filteredQuestions.sort((a, b) => a.index - b.index);
+          $('#questionCount').textContent = `${filteredQuestions.length}`;
+
+          // Update the filter dropdowns based on the filtered questions
+          populateFilterDropdowns(searchFilteredQuestions);
+
+          currentPage = 1;
+          renderQuestions();
+          $('#loadingIcon').classList.remove('show');
+        }, 100);
+      };
+
+      const areAnswersCorrect = (q) => {
+        return q.userAnswer.every(a => q.correctAnswers.includes(a)) && q.userAnswer.length === q.correctAnswers.length;
+      };
+
+      const toggleAnswers = () => {
+        showingAnswers = !showingAnswers;
+        $('#toggleAnswers i').classList.toggle('fa-eye-slash', showingAnswers);
+        $('#toggleAnswers i').classList.toggle('fa-eye', !showingAnswers);
+
+        updateVisibleQuestions();
+      };
+
+      const toggleNotes = () => {
+        toggleNotesState = (toggleNotesState + 1) % 3;
+
+        const toggleNotesIcon = $('#toggleNotes i');
+        toggleNotesIcon.classList.toggle('fa-lightbulb-on', toggleNotesState === 1);
+        toggleNotesIcon.classList.toggle('fa-lightbulb', toggleNotesState !== 1);
+        $('#toggleNotes').classList.toggle('notes-hidden', toggleNotesState === 2);
+
+        if (toggleNotesState === 1) {
+          showingNotes = true;
+        } else {
+          showingNotes = false;
+          if (toggleNotesState === 2) {
+            allQuestions.forEach(q => { q.showingNote = false; });
+          }
+        }
+
+        updateVisibleQuestions();
+      };
+
+      const toggleKeywords = () => {
+        showingKeywords = !showingKeywords;
+
+        updateVisibleQuestions();
+      };
+
+      const toggleFilterMenu = () => {
+        $('#filterMenu').classList.toggle('show');
+      };
+
+      const clearAllFilters = () => {
+        $('#starredFilter').checked = false;
+        $$('.answered-filter').forEach(cb => cb.checked = false);
+        $$('.category-filter').forEach(cb => cb.checked = false);
+        $$('.quizId-filter').forEach(cb => cb.checked = false);
+        $$('.generalId-filter').forEach(cb => cb.checked = false);
+        $$('.tag-filter').forEach(cb => cb.checked = false);
+
+        selectedStarred = false;
+        selectedAnsweredFilters.clear();
+        selectedCategoryFilters.clear();
+        selectedQuizIdFilters.clear();
+        selectedGeneralIdFilters.clear();
+        selectedTagFilters.clear();
+
+        // After clearing filters, update the filter dropdowns to show all possible filters
+        populateFilterDropdowns([]);
+      };
+
+      const createQuestionCard = (q, index) => {
+        const card = document.createElement('div');
+        card.className = 'question-card';
+        card.dataset.questionId = q.id;
+
+        // Always include note-placeholder
+        card.innerHTML = `
+          <div class="question-metadata">
+            <span class="metadata-item">General ID: ${q.generalId || 'N/A'}</span>
+            <span class="metadata-item">Quiz ID: ${q.quizId || 'N/A'}</span>
+            <span class="metadata-item">Category: ${q.category}</span>
+          </div>
+          <div class="question-actions">
+            <i class="${q.starred ? 'fas' : 'far'} fa-star action-icon" onclick="toggleStar('${q.id}')"></i>
+            <i class="fas fa-copy action-icon" onclick="copyToClipboard('${q.id}')"></i>
+          </div>
+          <div class="question-text">${processContent(q.text, q.keywords)}</div>
+          <div class="choices">
+            ${q.choices.map((choice, idx) => `
+              <button type="button" class="choice-button ${getChoiceClass(q, idx)}" onclick="handleChoiceClick('${q.id}', ${idx})" ${showingAnswers || q.userAnswer.length > 0 ? 'disabled' : ''}>
+                ${String.fromCharCode(65 + idx)}. <span class="choice-content">${processContent(choice)}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div class="note-placeholder"></div>
+        `;
+
+        return card;
+      };
+
+      const shouldDisplayNoteForQuestion = (q) => {
+        if (toggleNotesState === 2) {
+          return false;
+        }
+        if (toggleNotesState === 1) {
+          return true;
+        }
+        return q.showingNote;
+      };
+
+      const processContent = (content, keywords) => {
+        if (!content) return '';
+
+        let processed = content.replace(/\$\$IMG\$\$(.*?)\$\$\/IMG\$\$/g, (match, p1) => {
+          const path = p1.replace(/\\/g, '/');
+          return `<img src="file://${path}" class="thumbnail" onclick="window.showFullscreenImage('file://${path}')">`;
+        });
+
+        if (showingKeywords && keywords) {
+          const regex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'gi');
+          processed = processed.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        return processed;
+      };
+
+      const getChoiceClass = (q, idx) => {
+        if (showingAnswers || q.userAnswer.length > 0) {
+          if (q.correctAnswers.includes(idx)) return 'choice-correct';
+          if (q.userAnswer.includes(idx)) return 'choice-incorrect';
+        }
+        return 'choice-default';
+      };
+
+      const renderQuestions = () => {
+        const container = $('#searchResults');
+        container.innerHTML = '';
+
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        const questionsToShow = filteredQuestions.slice(start, end);
+
+        const fragment = document.createDocumentFragment();
+
+        questionsToShow.forEach((q, idx) => {
+          const card = createQuestionCard(q, start + idx + 1);
+          fragment.appendChild(card);
+        });
+
+        container.appendChild(fragment);
+
+        updateVisibleQuestions();
+        renderPagination();
+      };
+
+      const renderPagination = () => {
+        const pagination = $('#pagination');
+        pagination.innerHTML = '';
+
+        const totalPages = Math.ceil(filteredQuestions.length / pageSize);
+        if (totalPages <= 1) return;
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const createPageButton = (pageNumber) => {
+          const btn = document.createElement('button');
+          btn.textContent = pageNumber;
+          if (pageNumber === currentPage) btn.classList.add('active');
+          btn.addEventListener('click', () => {
+            if (currentPage !== pageNumber) {
+              currentPage = pageNumber;
+              renderQuestions();
+            }
+          });
+          return btn;
+        };
+
+        // Previous Button
+        if (currentPage > 1) {
+          const prevBtn = document.createElement('button');
+          prevBtn.textContent = 'Prev';
+          prevBtn.addEventListener('click', () => {
+            currentPage--;
+            renderQuestions();
+          });
+          pagination.appendChild(prevBtn);
+        }
+
+        // Page Buttons
+        for (let i = 1; i <= totalPages; i++) {
+          if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) {
+            pagination.appendChild(createPageButton(i));
+          } else if (Math.abs(i - currentPage) === 3) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            pagination.appendChild(ellipsis);
+          }
+        }
+
+        // Next Button
+        if (currentPage < totalPages) {
+          const nextBtn = document.createElement('button');
+          nextBtn.textContent = 'Next';
+          nextBtn.addEventListener('click', () => {
+            currentPage++;
+            renderQuestions();
+          });
+          pagination.appendChild(nextBtn);
+        }
+      };
+
+      const updateVisibleQuestions = () => {
+        const questionCards = document.querySelectorAll('.question-card');
+        questionCards.forEach(card => {
+          const questionId = card.dataset.questionId;
+          const question = filteredQuestions.find(q => q.id === questionId);
+          if (question) {
+            // Update choice buttons
+            const choiceButtons = card.querySelectorAll('.choice-button');
+            choiceButtons.forEach((button, idx) => {
+              button.disabled = showingAnswers || question.userAnswer.length > 0;
+              button.className = "choice-button " + getChoiceClass(question, idx);
+            });
+
+            // Update question text and choices
+            const questionText = card.querySelector('.question-text');
+            questionText.innerHTML = processContent(question.text, question.keywords);
+
+            const choiceContents = card.querySelectorAll('.choice-content');
+            choiceContents.forEach((choiceContent, idx) => {
+              choiceContent.innerHTML = processContent(question.choices[idx]);
+            });
+
+            // Update notes
+            const notePlaceholder = card.querySelector('.note-placeholder');
+            const displayNote = shouldDisplayNoteForQuestion(question);
+            if (notePlaceholder) {
+              if (displayNote) {
+                notePlaceholder.style.display = 'block';
+                if (!notePlaceholder.querySelector('note-component')) {
+                  notePlaceholder.innerHTML = `<note-component data-note="${encodeURIComponent(question.note)}"></note-component>`;
+                }
+              } else {
+                notePlaceholder.style.display = 'none';
+              }
+            }
+          }
+        });
+      };
+
+      window.handleChoiceClick = (questionId, choiceIndex) => {
+        const question = filteredQuestions.find(q => q.id === questionId) || allQuestions.find(q => q.id === questionId);
+        if (question) {
+          if (question.userAnswer.includes(choiceIndex)) {
+            question.userAnswer = question.userAnswer.filter(i => i !== choiceIndex);
+          } else {
+            question.userAnswer.push(choiceIndex);
+          }
+
+          localStorage.setItem(`question_${questionId}`, JSON.stringify(question.userAnswer));
+
+          if (toggleNotesState !== 2) {
+            question.showingNote = true;
+          }
+
+          updateVisibleQuestions();
+        }
+      };
+
+      window.toggleStar = (questionId) => {
+        const question = filteredQuestions.find(q => q.id === questionId) || allQuestions.find(q => q.id === questionId);
+        if (question) {
+          question.starred = !question.starred;
+          localStorage.setItem(`starred_${questionId}`, JSON.stringify(question.starred));
+
+          const questionCard = document.querySelector(`.question-card[data-question-id="${questionId}"]`);
+          if (questionCard) {
+            const starIcon = questionCard.querySelector('.fa-star');
+            if (starIcon) {
+              starIcon.classList.toggle('fas', question.starred);
+              starIcon.classList.toggle('far', !question.starred);
+            }
+          }
+        }
+      };
+
+      window.copyToClipboard = (questionId) => {
+        const question = filteredQuestions.find(q => q.id === questionId) || allQuestions.find(q => q.id === questionId);
+        if (question) {
+          const text = `${question.text}\n${question.choices.map((c, i) => `${String.fromCharCode(65 + i)}. ${c}`).join('\n')}`;
+          navigator.clipboard.writeText(text).then(() => {
+            alert('Question copied to clipboard!');
+          }).catch(err => console.error('Error copying:', err));
+        }
+      };
+
+      init();
+    })();
+  </script>
+</body>
+</html>
